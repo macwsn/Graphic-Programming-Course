@@ -1,0 +1,348 @@
+<!DOCTYPE html> 
+ <!-- The previous line tells the browser, that the page uses the HTML5 standard. --> 
+  
+ <html>
+     <head>
+         <title>Three.js Lab 1</title> 
+         <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1"> 
+  
+         <!-- The following meta line optimizes the site for mobile devices. 
+		      It sets the viewport size to the screen size, so it will be displayed maximized, but unscaled. --> 
+         <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1"> 
+         <style type="text/css"> 
+             body { 
+                 /* Set the background color of the HTML page to black */ 
+                 background-color: #000000; 
+  
+                 /* Hide oversized content. This prevents the scroll bars. */ 
+                 overflow: hidden; 
+             } 
+         </style> 
+         <!-- Include two libraries 
+       1. Three.js (core library)
+       2. Detector.js (checks the browsers WebGL capabilities) --> 
+         <script src="three.js"></script> 
+         <script src="Detector.js"></script> 
+     </head> 
+     <body>
+        <script>
+            var scene, camera, renderer;
+            var christmasTree, vehicle, house;
+            var vehicleSpeed = 0.03;
+            var smokeParticles = [];
+
+            function init() {
+                // Scena
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x87CAEB);
+                
+                // Kamera
+                camera = new THREE.PerspectiveCamera(
+                    75,
+                    window.innerWidth / window.innerHeight,
+                    0.1,
+                    100
+                );
+                camera.position.set(0, 4, 9);
+                camera.lookAt(0, 1, 0);
+                
+                // Renderer
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement);
+                
+                // Światło
+                var ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+                scene.add(ambientLight);
+                
+                // Podłoże (trawa)
+                var groundGeometry = new THREE.PlaneGeometry(50, 50);
+                var groundMaterial = new THREE.MeshLambertMaterial({ color: 0x108152 });
+                var ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = 0;
+                scene.add(ground);
+                
+                // Budowanie elementów
+                createChristmasTree();
+                createHouse();
+                createVehicle();
+                createFlowers();
+                
+                window.addEventListener('resize', onWindowResize);
+            }
+
+            function createChristmasTree() {
+                christmasTree = new THREE.Group();
+                
+                var treeColors = [0x0B6623, 0x228B22, 0x32CD32];
+                var treeSizes = [2.5, 2.0, 1.5];
+                var treeHeights = [0.7, 1.7, 2.5];
+                
+                for (var i = 0; i < 3; i++) {
+                    var geometry = new THREE.BufferGeometry();
+                    var vertices = new Float32Array([
+                        0, treeSizes[i], 0,           
+                        -treeSizes[i], -treeSizes[i]/2, 0,  
+                        treeSizes[i], -treeSizes[i]/2, 0  
+                    ]);
+                    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                    geometry.computeVertexNormals();
+                    
+                    var material = new THREE.MeshLambertMaterial({ 
+                        color: treeColors[i],
+                        side: THREE.DoubleSide 
+                    });
+                    var triangle = new THREE.Mesh(geometry, material);
+                    triangle.position.y = treeHeights[i];
+                    christmasTree.add(triangle);
+                }
+                
+                var trunkGeometry = new THREE.BoxGeometry(0.4, 1, 0.4);
+                var trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                var trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                trunk.position.y = 0.5;
+                christmasTree.add(trunk);
+                
+                christmasTree.position.set(-3, 0, 0);
+                scene.add(christmasTree);
+            }
+
+            function createHouse() {
+                house = new THREE.Group();
+                
+                var wallGeometry = new THREE.BoxGeometry(2, 2, 2);
+                var wallMaterial = new THREE.MeshLambertMaterial({ color: 0xD2691E });
+                var walls = new THREE.Mesh(wallGeometry, wallMaterial);
+                walls.position.y = 1;
+                house.add(walls);
+                
+                var roofVertices = new Float32Array([
+                    0, 2, 0,           
+                    -1.2, 0, 1.2,      
+                    1.2, 0, 1.2,       
+
+                    0, 2, 0,          
+                    1.2, 0, -1.2,      
+                    -1.2, 0, -1.2,     
+
+                    0, 2, 0,
+                    -1.2, 0, -1.2,
+                    -1.2, 0, 1.2,
+
+                    0, 2, 0,
+                    1.2, 0, 1.2,
+                    1.2, 0, -1.2
+                ]);
+                
+                var roofGeometry = new THREE.BufferGeometry();
+                roofGeometry.setAttribute('position', new THREE.BufferAttribute(roofVertices, 3));
+                roofGeometry.computeVertexNormals();
+                
+                var roofMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x8B0000,
+                    side: THREE.DoubleSide 
+                });
+                var roof = new THREE.Mesh(roofGeometry, roofMaterial);
+                roof.position.y = 2;
+                house.add(roof);
+                
+                var doorGeometry = new THREE.BoxGeometry(0.5, 1, 0.1);
+                var doorMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+                var door = new THREE.Mesh(doorGeometry, doorMaterial);
+                door.position.set(0, 0.5, 1.05);
+                house.add(door);
+                
+                var windowGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.1);
+                var windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB });
+                var window1 = new THREE.Mesh(windowGeometry, windowMaterial);
+                window1.position.set(0.6, 1.2, 1.05);
+                house.add(window1);
+                
+                var chimneyGeometry = new THREE.BoxGeometry(0.3, 0.8, 0.3);
+                var chimneyMaterial = new THREE.MeshLambertMaterial({ color: 0x8B00AA });
+                var chimney = new THREE.Mesh(chimneyGeometry, chimneyMaterial);
+                chimney.position.set(0.6, 3, 0);
+                house.add(chimney);
+                
+                house.position.set(3, 0, 0);
+                scene.add(house);
+                
+                createSmokeParticles();
+            }
+
+            function createVehicle() {
+                vehicle = new THREE.Group();
+                
+                var bodyGeometry = new THREE.BoxGeometry(2, 0.6, 1);
+                var bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF0000 });
+                var body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.position.y = 0.5;
+                vehicle.add(body);
+                
+                var cabinGeometry = new THREE.BoxGeometry(0.8, 0.5, 0.9);
+                var cabinMaterial = new THREE.MeshLambertMaterial({ color: 0xFF6347 });
+                var cabin = new THREE.Mesh(cabinGeometry, cabinMaterial);
+                cabin.position.set(-0.3, 1, 0);
+                vehicle.add(cabin);
+                
+                var wheelPositions = [
+                    [-0.6, 0.2, 0.6],
+                    [-0.6, 0.2, -0.6],
+                    [0.6, 0.2, 0.6],
+                    [0.6, 0.2, -0.6]
+                ];
+                
+                for (var i = 0; i < wheelPositions.length; i++) {
+                    var pos = wheelPositions[i];
+                    var wheelGeometry = new THREE.CircleGeometry(0.3, 16);
+                    var wheelMaterial = new THREE.MeshLambertMaterial({ 
+                        color: 0x333333,
+                        side: THREE.DoubleSide 
+                    });
+                    var wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                    wheel.position.set(pos[0], pos[1], pos[2]);
+                    wheel.rotation.z = Math.PI / 2;
+                    vehicle.add(wheel);
+                }
+                
+                vehicle.position.set(-10, 0, -3);
+                scene.add(vehicle);
+            }
+
+            function createSmokeParticles() {
+                for (var i = 0; i < 20; i++) {
+                    var smokeGeometry = new THREE.CircleGeometry(0.15, 8);
+                    var smokeMaterial = new THREE.MeshLambertMaterial({ 
+                        color: 0x888888,
+                        transparent: true,
+                        opacity: 0.6,
+                        side: THREE.DoubleSide 
+                    });
+                    var smoke = new THREE.Mesh(smokeGeometry, smokeMaterial);
+                    
+                    smoke.position.set(
+                        house.position.x + 0.6,
+                        house.position.y + 3.4,
+                        house.position.z
+                    );
+                    
+                    smoke.userData = {
+                        velocity: {
+                            x: (Math.random() - 0.5) * 0.02,
+                            y: 0.02 + Math.random() * 0.02,
+                            z: (Math.random() - 0.5) * 0.02
+                        },
+                        life: Math.random() * 100,
+                        maxLife: 100
+                    };
+                    
+                    scene.add(smoke);
+                    smokeParticles.push(smoke);
+                }
+            }
+
+            function createFlowers() {
+                var flowerPositions = [
+                    [1, 0.01, 3],
+                    [-5, 0.01, 2],
+                    [5, 0.01, -2],
+                    [-1, 0.01, 4],
+                    [0, 0.01, -4],
+                    [-6, 0.01, -3],
+                    [4, 0.01, 3],
+                    [-2, 0.01, -1]
+                ];
+                
+                for (var f = 0; f < flowerPositions.length; f++) {
+                    var pos = flowerPositions[f];
+                    var flower = new THREE.Group();
+                    
+                    var centerGeometry = new THREE.CircleGeometry(0.1, 16);
+                    var centerMaterial = new THREE.MeshLambertMaterial({ 
+                        color: 0xFFFF00,
+                        side: THREE.DoubleSide 
+                    });
+                    var center = new THREE.Mesh(centerGeometry, centerMaterial);
+                    center.rotation.x = -Math.PI / 2;
+                    flower.add(center);
+                    
+                    var petalColors = [0xFF69B4, 0xFFB6C1, 0xFFFFFF];
+                    var petalColor = petalColors[Math.floor(Math.random() * petalColors.length)];
+                    
+                    for (var i = 0; i < 6; i++) {
+                        var angle = (i / 6) * Math.PI * 2;
+                        var petalGeometry = new THREE.CircleGeometry(0.08, 16);
+                        var petalMaterial = new THREE.MeshLambertMaterial({ 
+                            color: petalColor,
+                            side: THREE.DoubleSide 
+                        });
+                        var petal = new THREE.Mesh(petalGeometry, petalMaterial);
+                        petal.position.x = Math.cos(angle) * 0.12;
+                        petal.position.z = Math.sin(angle) * 0.12;
+                        petal.rotation.x = -Math.PI / 2;
+                        flower.add(petal);
+                    }
+                    
+                    flower.position.set(pos[0], pos[1], pos[2]);
+                    scene.add(flower);
+                }
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                if (christmasTree) {
+                    christmasTree.rotation.y += 0.01;
+                }
+                
+                if (vehicle) {
+                    vehicle.position.x += vehicleSpeed;
+                    
+                    if (vehicle.position.x > 9) {
+                        vehicle.position.x = -9;
+                    }
+                    
+                    for (var i = 2; i < vehicle.children.length; i++) {
+                        vehicle.children[i].rotation.x += vehicleSpeed * 2;
+                    }
+                }
+                
+                for (var i = 0; i < smokeParticles.length; i++) {
+                    var smoke = smokeParticles[i];
+                    smoke.userData.life++;
+                    
+                    if (smoke.userData.life > smoke.userData.maxLife) {
+                        smoke.position.set(
+                            house.position.x + 0.6,
+                            house.position.y + 3.4,
+                            house.position.z
+                        );
+                        smoke.userData.life = 0;
+                        smoke.material.opacity = 0.6;
+                        smoke.scale.set(1, 1, 1);
+                    }
+                    
+                    smoke.position.x += smoke.userData.velocity.x;
+                    smoke.position.y += smoke.userData.velocity.y;
+                    smoke.position.z += smoke.userData.velocity.z;
+                    
+                    var lifeRatio = smoke.userData.life / smoke.userData.maxLife;
+                    smoke.material.opacity = 0.6 * (1 - lifeRatio);
+                    smoke.scale.set(1 + lifeRatio, 1 + lifeRatio, 1);
+                }
+                
+                renderer.render(scene, camera);
+            }
+
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            init();
+            animate();
+       </script> 
+     </body> 
+</html>
