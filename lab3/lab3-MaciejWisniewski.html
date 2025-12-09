@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+let scene, camera, renderer;
+let mirrorSphere, mirrorSphereCamera, mirrorSphereRenderTarget;
+let mirrorBox, mirrorBoxCamera, mirrorBoxRenderTarget;
+let texturedSphere, transparentTorus, bumpSphere;
+let skybox;
+
+init();
+animate();
+
+function init() {
+    scene = new THREE.Scene();
+    
+    const SCREEN_WIDTH = window.innerWidth;
+    const SCREEN_HEIGHT = window.innerHeight;
+    const VIEW_ANGLE = 45;
+    const ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT;
+    const NEAR = 0.1;
+    const FAR = 20000;
+    
+    camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+    camera.position.set(0, 150, 500);
+    camera.lookAt(scene.position);
+    scene.add(camera);
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+    document.body.appendChild(renderer.domElement);
+    
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambientLight);
+    
+    const pointLight = new THREE.PointLight(0xffffff, 1, 1000);
+    pointLight.position.set(0, 300, 0);
+    scene.add(pointLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(100, 100, 100);
+    scene.add(directionalLight);
+    
+    createSkybox();
+    
+    createMirrorSphere();
+    createMirrorBox();
+    createTexturedSphere();
+    createTransparentTorus();
+    createBumpSphere();
+    
+    window.addEventListener('resize', onWindowResize, false);
+    
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', (event) => {
+        mouseX = (event.clientX - window.innerWidth / 2) * 0.0005;
+        mouseY = (event.clientY - window.innerHeight / 2) * 0.0005;
+    });
+    
+    function updateCamera() {
+        camera.position.x += mouseX;
+        camera.position.y += mouseY;
+        camera.lookAt(scene.position);
+    }
+    
+    setInterval(updateCamera, 16);
+}
+
+function createSkybox() {
+    const imagePrefix = "textures/dawnmountain-";
+    const directions = ["xpos", "xneg", "ypos", "yneg", "zpos", "zneg"];
+    const imageSuffix = ".png";
+    
+    const materialArray = [];
+    
+    for (let i = 0; i < 6; i++) {
+        const texture = new THREE.TextureLoader().load(
+            imagePrefix + directions[i] + imageSuffix
+        );
+        materialArray.push(new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.BackSide
+        }));
+    }
+    
+    const skyboxGeom = new THREE.BoxGeometry(5000, 5000, 5000);
+    skybox = new THREE.Mesh(skyboxGeom, materialArray);
+    scene.add(skybox);
+}
+
+function createMirrorSphere() {
+    const sphereGeom = new THREE.SphereGeometry(40, 32, 32);
+    
+    mirrorSphereRenderTarget = new THREE.WebGLCubeRenderTarget(512, {
+        format: THREE.RGBFormat,
+        generateMipmaps: true,
+        minFilter: THREE.LinearMipmapLinearFilter
+    });
+    
+    mirrorSphereCamera = new THREE.CubeCamera(0.1, 5000, mirrorSphereRenderTarget);
+    scene.add(mirrorSphereCamera);
+    
+    const mirrorSphereMaterial = new THREE.MeshBasicMaterial({
+        envMap: mirrorSphereRenderTarget.texture
+    });
+    
+    mirrorSphere = new THREE.Mesh(sphereGeom, mirrorSphereMaterial);
+    mirrorSphere.position.set(-120, 40, 0);
+    mirrorSphereCamera.position.copy(mirrorSphere.position);
+    scene.add(mirrorSphere);
+}
+
+function createMirrorBox() {
+    const boxGeom = new THREE.BoxGeometry(70, 70, 70, 10, 10, 10);
+    
+    mirrorBoxRenderTarget = new THREE.WebGLCubeRenderTarget(512, {
+        format: THREE.RGBFormat,
+        generateMipmaps: true,
+        minFilter: THREE.LinearMipmapLinearFilter
+    });
+
+    mirrorBoxCamera = new THREE.CubeCamera(0.1, 5000, mirrorBoxRenderTarget);
+    scene.add(mirrorBoxCamera);
+    
+    const mirrorBoxMaterial = new THREE.MeshBasicMaterial({
+        envMap: mirrorBoxRenderTarget.texture
+    });
+    
+    mirrorBox = new THREE.Mesh(boxGeom, mirrorBoxMaterial);
+    mirrorBox.position.set(120, 40, 0);
+    mirrorBoxCamera.position.copy(mirrorBox.position);
+    scene.add(mirrorBox);
+}
+
+function createTexturedSphere() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    const squareSize = 32;
+    for (let y = 0; y < canvas.height; y += squareSize) {
+        for (let x = 0; x < canvas.width; x += squareSize) {
+            ctx.fillStyle = ((x / squareSize + y / squareSize) % 2 === 0) ? '#ff6b6b' : '#4ecdc4';
+            ctx.fillRect(x, y, squareSize, squareSize);
+        }
+    }
+    
+    const texture = new THREE.Texture(canvas);
+    texture.needsUpdate = true;
+    
+    const sphereGeom = new THREE.SphereGeometry(35, 32, 32);
+    const material = new THREE.MeshPhongMaterial({
+        map: texture
+    });
+    
+    texturedSphere = new THREE.Mesh(sphereGeom, material);
+    texturedSphere.position.set(0, 40, -120);
+    scene.add(texturedSphere);
+}
+
+function createTransparentTorus() {
+    const torusGeom = new THREE.TorusGeometry(40, 15, 16, 100);
+    const material = new THREE.MeshPhongMaterial({
+        color: 0x44ccff,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide
+    });
+    
+    transparentTorus = new THREE.Mesh(torusGeom, material);
+    transparentTorus.position.set(0, 40, 120);
+    scene.add(transparentTorus);
+}
+
+function createBumpSphere() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    for (let i = 0; i < 1000; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = Math.random() * 20 + 5;
+        const brightness = Math.random() * 100 + 100;
+        
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, `rgb(${brightness}, ${brightness}, ${brightness})`);
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    }
+    
+    const bumpTexture = new THREE.Texture(canvas);
+    bumpTexture.needsUpdate = true;
+    
+    const baseCanvas = document.createElement('canvas');
+    baseCanvas.width = 512;
+    baseCanvas.height = 512;
+    const baseCtx = baseCanvas.getContext('2d');
+    const gradient = baseCtx.createLinearGradient(0, 0, baseCanvas.width, baseCanvas.height);
+    gradient.addColorStop(0, '#ff9a56');
+    gradient.addColorStop(1, '#ff6b9d');
+    baseCtx.fillStyle = gradient;
+    baseCtx.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
+    
+    const baseTexture = new THREE.Texture(baseCanvas);
+    baseTexture.needsUpdate = true;
+    
+    const sphereGeom = new THREE.SphereGeometry(35, 64, 64);
+    const material = new THREE.MeshPhongMaterial({
+        map: baseTexture,
+        bumpMap: bumpTexture,
+        bumpScale: 5
+    });
+    
+    bumpSphere = new THREE.Mesh(sphereGeom, material);
+    bumpSphere.position.set(-120, -30, -100);
+    scene.add(bumpSphere);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    
+    if (mirrorSphere) {
+        mirrorSphere.rotation.y += 0.01;
+        mirrorSphere.rotation.x += 0.005;
+    }
+    
+    if (mirrorBox) {
+        const time = Date.now() * 0.001;
+        mirrorBox.position.x = Math.cos(time) * 120;
+        mirrorBox.position.z = Math.sin(time) * 120;
+        mirrorBox.rotation.y += 0.02;
+        mirrorBox.rotation.z += 0.01;
+        mirrorBoxCamera.position.copy(mirrorBox.position);
+    }
+    
+    if (texturedSphere) {
+        texturedSphere.rotation.y += 0.008;
+    }
+    
+    if (transparentTorus) {
+        transparentTorus.rotation.x += 0.01;
+        transparentTorus.rotation.y += 0.015;
+    }
+    
+    if (bumpSphere) {
+        bumpSphere.rotation.y += 0.005;
+    }
+    
+    render();
+}
+
+function render() {
+    if (mirrorSphere && mirrorSphereCamera) {
+        mirrorSphere.visible = false;
+        mirrorSphereCamera.update(renderer, scene);
+        mirrorSphere.visible = true;
+    }
+    
+    if (mirrorBox && mirrorBoxCamera) {
+        mirrorBox.visible = false;
+        mirrorBoxCamera.update(renderer, scene);
+        mirrorBox.visible = true;
+    }
+    
+    renderer.render(scene, camera);
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+</script>
+</body>
+</html>
