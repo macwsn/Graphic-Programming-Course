@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title></title>
+  <title>Physics Box</title>
   <link rel="stylesheet"  />
 </head>
 <body>
@@ -11,7 +11,6 @@
 
   <script src="three.min.js"></script>
   <script src="physi.js"></script>
-  //<script src="OrbitControls.js"></script>
   <script>
     var container, scene, renderer, camera, light, ball, plane;
     var WIDTH, HEIGHT, VIEW_ANGLE, ASPECT, NEAR, FAR;
@@ -54,7 +53,6 @@
     camera.position.set(60, 40, 120);
     camera.lookAt(scene.position);
     scene.add(camera);
-    //const controls = new OrbitControls( camera, renderer.domElement );
 
     light = new THREE.DirectionalLight(0xffffff);
 
@@ -71,7 +69,6 @@
     light.shadowDarkness = .7;
 
     scene.add(light);
-    //controls.update();
 
     plane = new Physijs.BoxMesh(
       new THREE.CubeGeometry(100, 100, 2, 100, 100),
@@ -90,6 +87,91 @@
     plane.receiveShadow = true;
 
     scene.add(plane);
+
+    // Pudełko - dno
+    var boxBottom = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(30, 1, 30),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0x8B4513
+        }),
+        .4,
+        .6
+      ),
+      0
+    );
+    boxBottom.position.set(0, 0.5, 0);
+    boxBottom.receiveShadow = true;
+    boxBottom.castShadow = true;
+    scene.add(boxBottom);
+
+    // Pudełko - ściana przednia
+    var boxFront = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(30, 15, 1),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0xA0522D
+        }),
+        .4,
+        .6
+      ),
+      0
+    );
+    boxFront.position.set(0, 7.5, 15);
+    boxFront.receiveShadow = true;
+    boxFront.castShadow = true;
+    scene.add(boxFront);
+
+    // Pudełko - ściana tylna
+    var boxBack = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(30, 15, 1),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0xA0522D
+        }),
+        .4,
+        .6
+      ),
+      0
+    );
+    boxBack.position.set(0, 7.5, -15);
+    boxBack.receiveShadow = true;
+    boxBack.castShadow = true;
+    scene.add(boxBack);
+
+    // Pudełko - ściana lewa
+    var boxLeft = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(1, 15, 30),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0xA0522D
+        }),
+        .4,
+        .6
+      ),
+      0
+    );
+    boxLeft.position.set(-15, 7.5, 0);
+    boxLeft.receiveShadow = true;
+    boxLeft.castShadow = true;
+    scene.add(boxLeft);
+
+    // Pudełko - ściana prawa
+    var boxRight = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(1, 15, 30),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0xA0522D
+        }),
+        .4,
+        .6
+      ),
+      0
+    );
+    boxRight.position.set(15, 7.5, 0);
+    boxRight.receiveShadow = true;
+    boxRight.castShadow = true;
+    scene.add(boxRight);
 
     setInterval(function() {
       ball = new Physijs.SphereMesh(
