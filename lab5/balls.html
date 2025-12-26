@@ -215,6 +215,11 @@
         ball.castShadow = true;
         ball.receiveShadow = true;
 
+        // Dodaj listener kolizji dla każdej kulki
+        ball.addEventListener('collision', function(other_object, relative_velocity, relative_rotation, contact_normal) {
+          this.material.color.setHex(Math.random() * 0xffffff);
+        });
+
         scene.add(ball);
       }, spawnInterval);
     }
