@@ -180,6 +180,33 @@
     boxRight.castShadow = true;
     scene.add(boxRight);
 
+    // TRAMPOLINA - obok pudełka
+    var trampoline = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(20, 1, 20),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0x00ff00,
+          emissive: 0x003300
+        }),
+        .9,
+        .1
+      ),
+      0
+    );
+    trampoline.position.set(35, 0.5, 0);
+    trampoline.receiveShadow = true;
+    trampoline.castShadow = true;
+    
+    // Event listener dla trampoliny - odbija kulki w górę
+    trampoline.addEventListener('collision', function(other_object, relative_velocity, relative_rotation, contact_normal) {
+      if (other_object instanceof Physijs.SphereMesh) {
+        var bounceForce = new THREE.Vector3(0, 100, 0);
+        other_object.applyCentralImpulse(bounceForce);
+      }
+    });
+    
+    scene.add(trampoline);
+
     var spawnInterval = 1000;
     var intervalId;
 
