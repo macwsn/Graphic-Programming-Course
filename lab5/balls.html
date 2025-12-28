@@ -280,7 +280,18 @@
     render();
     scene.simulate()
 
+    // Obracanie kamery wokół sceny
+    var angle = 0;
+    var rotationSpeed = 0.01;
+
     function render() {
+      // Automatyczne obracanie kamery
+      angle += rotationSpeed;
+      var radius = 140;
+      camera.position.x = Math.cos(angle) * radius;
+      camera.position.z = Math.sin(angle) * radius;
+      camera.lookAt(scene.position);
+
       for (var i = 5; i < scene.children.length - 5; i++) {
         var obj = scene.children[i];
 
