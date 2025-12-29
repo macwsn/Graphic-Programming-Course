@@ -95,7 +95,6 @@
 
     scene.add(plane);
 
-    // Pudełko - dno
     var boxBottom = new Physijs.BoxMesh(
       new THREE.CubeGeometry(30, 1, 30),
       Physijs.createMaterial(
@@ -112,7 +111,6 @@
     boxBottom.castShadow = true;
     scene.add(boxBottom);
 
-    // Pudełko - ściana przednia
     var boxFront = new Physijs.BoxMesh(
       new THREE.CubeGeometry(30, 15, 1),
       Physijs.createMaterial(
@@ -129,7 +127,6 @@
     boxFront.castShadow = true;
     scene.add(boxFront);
 
-    // Pudełko - ściana tylna
     var boxBack = new Physijs.BoxMesh(
       new THREE.CubeGeometry(30, 15, 1),
       Physijs.createMaterial(
@@ -146,7 +143,6 @@
     boxBack.castShadow = true;
     scene.add(boxBack);
 
-    // Pudełko - ściana lewa
     var boxLeft = new Physijs.BoxMesh(
       new THREE.CubeGeometry(1, 15, 30),
       Physijs.createMaterial(
@@ -163,7 +159,6 @@
     boxLeft.castShadow = true;
     scene.add(boxLeft);
 
-    // Pudełko - ściana prawa
     var boxRight = new Physijs.BoxMesh(
       new THREE.CubeGeometry(1, 15, 30),
       Physijs.createMaterial(
@@ -180,7 +175,6 @@
     boxRight.castShadow = true;
     scene.add(boxRight);
 
-    // TRAMPOLINA - obok pudełka
     var trampoline = new Physijs.BoxMesh(
       new THREE.CubeGeometry(20, 1, 20),
       Physijs.createMaterial(
@@ -197,7 +191,6 @@
     trampoline.receiveShadow = true;
     trampoline.castShadow = true;
     
-    // Event listener dla trampoliny - odbija kulki w górę
     trampoline.addEventListener('collision', function(other_object, relative_velocity, relative_rotation, contact_normal) {
       if (other_object instanceof Physijs.SphereMesh) {
         var bounceForce = new THREE.Vector3(0, 100, 0);
@@ -207,7 +200,6 @@
     
     scene.add(trampoline);
 
-    // PRZESZKODY w powietrzu - obracające się platformy
     var obstacle1 = new Physijs.BoxMesh(
       new THREE.CubeGeometry(15, 1, 8),
       Physijs.createMaterial(
@@ -296,8 +288,6 @@
         ball.position.y = 40;
         ball.castShadow = true;
         ball.receiveShadow = true;
-
-        // Dodaj listener kolizji dla każdej kulki
         ball.addEventListener('collision', function(other_object, relative_velocity, relative_rotation, contact_normal) {
           this.material.color.setHex(Math.random() * 0xffffff);
         });
@@ -307,17 +297,13 @@
     }
 
     startSpawning();
-
-    // Kontrola suwaka
     document.getElementById('speedControl').addEventListener('input', function(e) {
       spawnInterval = parseInt(e.target.value);
       document.getElementById('speedValue').textContent = (spawnInterval / 1000).toFixed(1) + 's';
       startSpawning();
     });
 
-    // Nowa logika: Kliknięcie myszką tworzy wybuch (impulse)
     document.addEventListener('click', function(event) {
-      // Prosta metoda - wybuch od środka sceny na zewnątrz
       for (var i = 5; i < scene.children.length; i++) {
         var obj = scene.children[i];
         if (obj instanceof Physijs.SphereMesh) {
@@ -334,13 +320,10 @@
 
     render();
     scene.simulate()
-
-    // Obracanie kamery wokół sceny
     var angle = 0;
     var rotationSpeed = 0.01;
 
     function render() {
-      // Automatyczne obracanie kamery
       angle += rotationSpeed;
       var radius = 140;
       camera.position.x = Math.cos(angle) * radius;
