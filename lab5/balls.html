@@ -207,6 +207,61 @@
     
     scene.add(trampoline);
 
+    // PRZESZKODY w powietrzu - obracające się platformy
+    var obstacle1 = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(15, 1, 8),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0xff6600,
+          emissive: 0x331100
+        }),
+        .6,
+        .8
+      ),
+      0
+    );
+    obstacle1.position.set(-5, 20, 0);
+    obstacle1.rotation.z = Math.PI / 6;
+    obstacle1.receiveShadow = true;
+    obstacle1.castShadow = true;
+    scene.add(obstacle1);
+
+    var obstacle2 = new Physijs.BoxMesh(
+      new THREE.CubeGeometry(12, 1, 12),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0x0066ff,
+          emissive: 0x001133
+        }),
+        .6,
+        .8
+      ),
+      0
+    );
+    obstacle2.position.set(8, 28, 5);
+    obstacle2.rotation.z = -Math.PI / 8;
+    obstacle2.receiveShadow = true;
+    obstacle2.castShadow = true;
+    scene.add(obstacle2);
+
+    var obstacle3 = new Physijs.CylinderMesh(
+      new THREE.CylinderGeometry(3, 3, 15, 16),
+      Physijs.createMaterial(
+        new THREE.MeshLambertMaterial({
+          color: 0xff00ff,
+          emissive: 0x330033
+        }),
+        .6,
+        .8
+      ),
+      0
+    );
+    obstacle3.position.set(0, 25, -8);
+    obstacle3.rotation.x = Math.PI / 2;
+    obstacle3.receiveShadow = true;
+    obstacle3.castShadow = true;
+    scene.add(obstacle3);
+
     var spawnInterval = 1000;
     var intervalId;
 
