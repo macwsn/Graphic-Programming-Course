@@ -1,0 +1,28 @@
+OPIS PROJEKTU - SYMULACJA PŁOMIENIA (THREE.JS)
+
+1. Co realizuje projekt:
+Projekt jest zaawansowaną symulacją wizualną płomienia świecy opartą na systemie cząsteczkowym (Particle System).
+Główne funkcjonalności:
+- Realistyczny ruch płomienia imitujący konwekcję gorącego powietrza.
+- Ewolucja koloru i wielkości cząsteczek w zależności od ich czasu życia.
+- Dynamiczne, migoczące światło (PointLight), które wpływa na otoczenie i rzuca cienie.
+- Interfejs użytkownika (dat.gui) pozwalający na modyfikację parametrów takich jak wysokość, szerokość płomienia, wielkość cząsteczek i kolor.
+- Prosty model geometryczny świecy (cylinder + knot).
+
+2. Struktura i zawartość kodu:
+- Inicjalizacja Three.js: Ustawienie sceny (Scene), kamery (PerspectiveCamera), renderera z obsługą cieni (WebGLRenderer) oraz kontroli (OrbitControls).
+- Klasa FlameSystem: Serce projektu. Zarządza tablicą obiektów cząsteczek, przelicza ich fizykę (pozycję, prędkość, życie) oraz aktualizuje bufory atrybutów (BufferGeometry).
+- Funkcja animate(): Pętla renderująca wykonująca aktualizację systemu cząsteczek oraz symulację migotania światła (prosta funkcja losowa modyfikująca intensywność i pozycję źródła światła).
+- Tekstury: Wykorzystano dynamicznie generowaną teksturę typu "radial gradient" za pomocą obiektu HTML Canvas, co eliminuje zależność od zewnętrznych plików graficznych.
+- Biblioteki pomocnicze: 
+    * three.min.js - silnik graficzny.
+    * OrbitControls.js - nawigacja w scenie 3D.
+    * dat.gui.min.js - panel parametrów.
+    * stats.min.js - monitor wydajności (klatki na sekundę).
+
+3. Źródła inspiracji:
+- Techniki "Sprite-based particles" stosowane powszechnie w silnikach gier (np. Unity, Unreal Engine) do wizualizacji zjawisk atmosferycznych i ognia.
+- Dokumentacja Three.js dotycząca BufferGeometry i PointsMaterial.
+- Przykłady z laboratorium (lab 1-6) w zakresie struktury plików HTML i integracji bibliotek zewnętrznych.
+- Inspiracja wizualna: klasyczne animacje świec w grafice komputerowej.
+- Modele: Modele geometryczne (świeca) zostały wygenerowane programistycznie z prymitywów dostępnych w bibliotece Three.js.
