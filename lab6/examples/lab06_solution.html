@@ -39,10 +39,6 @@
 </head>
 
 <body>
-    <div id="info">
-        THREE.JS - 4 PARY TANCERZY (8 POSTACI)<br />
-        Wymagane pliki: Hip Hop Dancing.fbx, Hip Hop Dancing 1.fbx, Hip Hop Dancing 2.fbx, Hip Hop Dancing 4.fbx
-    </div>
     <div id="overlay">GENEROWANIE ŚWIATA...</div>
 
     <script type="module">
@@ -70,16 +66,13 @@
             const container = document.createElement('div');
             document.body.appendChild(container);
 
-            // --- KAMERA ---
             camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 10, 8000);
             camera.position.set(0, 400, 800);
 
-            // --- SCENA ---
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x020205);
             scene.fog = new THREE.FogExp2(0x020205, 0.0006);
 
-            // --- ŚWIATŁA ---
             const ambientLight = new THREE.AmbientLight(0x222222);
             scene.add(ambientLight);
 
@@ -99,7 +92,6 @@
             createMovingLight(0x00ffff, 400, 2.0, 300);
             createMovingLight(0xffff00, 300, 1.0, 400);
 
-            // --- PODŁOGA ---
             const floorMat = new THREE.MeshStandardMaterial({
                 color: 0x050510,
                 roughness: 0.1,
@@ -116,7 +108,6 @@
             grid.material.transparent = true;
             scene.add(grid);
 
-            // --- KULA DISCO ---
             const discoBallGeometry = new THREE.SphereGeometry(50, 32, 32);
             const discoBallMaterial = new THREE.MeshPhongMaterial({
                 color: 0xcccccc,
@@ -130,7 +121,6 @@
             discoBall.receiveShadow = false;
             scene.add(discoBall);
 
-            // Dodaj refleksy na kuli disco - małe lustra
             const mirrorGeometry = new THREE.CircleGeometry(3, 6);
             const mirrorMaterial = new THREE.MeshPhongMaterial({
                 color: 0xffffff,
@@ -145,7 +135,6 @@
             for (let i = 0; i < mirrorCount; i++) {
                 const mirror = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
                 
-                // Rozmieszczenie na sferze
                 const phi = Math.acos(-1 + (2 * i) / mirrorCount);
                 const theta = Math.sqrt(mirrorCount * Math.PI) * phi;
                 
@@ -155,7 +144,6 @@
                 discoBall.add(mirror);
             }
 
-            // Punktowe światła od kuli disco
             const discoLight1 = new THREE.PointLight(0xff00ff, 3, 500);
             discoLight1.position.set(0, 300, 0);
             scene.add(discoLight1);
@@ -178,7 +166,6 @@
             objectRotators.push({ light: discoLight2, type: 'discoSpot1' });
             objectRotators.push({ light: discoLight3, type: 'discoSpot2' });
 
-            // --- TŁO: INSTANCED MESH ---
             const geometry = new THREE.BoxBufferGeometry(20, 20, 20);
             const material = new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 100 });
             const instances = 1500;
@@ -203,7 +190,6 @@
             instancedMesh.castShadow = true;
             scene.add(instancedMesh);
 
-            // --- PROCEDURALNE MIASTO ---
             const towerGeom = new THREE.BoxBufferGeometry(100, 1, 100);
             for (let i = 0; i < 40; i++) {
                 const h = Math.random() * 800 + 200;
@@ -223,7 +209,6 @@
                 scene.add(tower);
             }
 
-            // --- SYSTEM CZĄSTECZEK ---
             const partCount = 2000;
             const partGeom = new THREE.BufferGeometry();
             const partPositions = new Float32Array(partCount * 3);
@@ -236,7 +221,6 @@
             objectRotators.push({ mesh: instancedMesh, positions: positions, type: 'instanced' });
             objectRotators.push({ mesh: sparks, type: 'sparks' });
 
-            // --- RENDERER ---
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -244,7 +228,6 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             container.appendChild(renderer.domElement);
 
-            // --- POST PROCESSING ---
             const renderScene = new RenderPass(scene, camera);
 
             const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
@@ -256,7 +239,6 @@
             composer.addPass(renderScene);
             composer.addPass(bloomPass);
 
-            // --- KONTROLA ---
             controls = new OrbitControls(camera, renderer.domElement);
             controls.target.set(0, 100, 0);
             controls.enableDamping = true;
@@ -266,7 +248,6 @@
 
             window.addEventListener('resize', onWindowResize, false);
 
-            // --- ŁADOWANIE MODELI FBX Z ANIMACJAMI ---
             const animations = [];
             const loader = new FBXLoader();
             
@@ -287,7 +268,6 @@
                 
                 document.getElementById('overlay').style.opacity = 0;
 
-                // Zbierz animacje z każdego modelu
                 models.forEach((model, idx) => {
                     if (model.animations && model.animations.length > 0) {
                         animations.push(model.animations[0]);
@@ -300,53 +280,45 @@
                     return;
                 }
 
-                // Użyj pierwszego modelu jako bazy
                 const baseModel = models[0];
                 const box = new THREE.Box3().setFromObject(baseModel);
                 const size = box.getSize(new THREE.Vector3());
                 const scaleAll = 170 / size.y;
 
-                // --- TWORZENIE 4 PAR TANCERZY (8 POSTACI) ---
-                // Każda para ma inne położenie i animację
                 const pairs = [
-                    { x: -300, z: 200, anim: 0 },    // Para 1 - Hip Hop Dancing
-                    { x: -100, z: -200, anim: 1 },   // Para 2 - Hip Hop Dancing 1
-                    { x: 100, z: 200, anim: 2 },     // Para 3 - Hip Hop Dancing 2
-                    { x: 300, z: -200, anim: 3 }     // Para 4 - Hip Hop Dancing 4
+                    { x: -300, z: 200, anim: 0 },
+                    { x: -100, z: -200, anim: 1 },
+                    { x: 100, z: 200, anim: 2 },
+                    { x: 300, z: -200, anim: 3 }
                 ];
 
-                // Paleta kolorów dla każdej postaci (8 różnych kolorów)
                 const colors = [
-                    new THREE.Color(0xff00ff), // Magenta
-                    new THREE.Color(0x00ffff), // Cyan
-                    new THREE.Color(0xff0000), // Czerwony
-                    new THREE.Color(0x00ff00), // Zielony
-                    new THREE.Color(0xffff00), // Żółty
-                    new THREE.Color(0x0000ff), // Niebieski
-                    new THREE.Color(0xff6600), // Pomarańczowy
-                    new THREE.Color(0xff0099)  // Różowy
+                    new THREE.Color(0xff00ff),
+                    new THREE.Color(0x00ffff),
+                    new THREE.Color(0xff0000),
+                    new THREE.Color(0x00ff00),
+                    new THREE.Color(0xffff00),
+                    new THREE.Color(0x0000ff),
+                    new THREE.Color(0xff6600),
+                    new THREE.Color(0xff0099)
                 ];
 
                 let colorIndex = 0;
 
                 pairs.forEach((pair, pairIdx) => {
-                    // Dwie postacie w parze - NAPRZECIWKO SIEBIE
                     for (let i = 0; i < 2; i++) {
                         const clone = SkeletonUtils.clone(baseModel);
                         clone.scale.setScalar(scaleAll);
 
-                        // Pozycja - naprzeciwko siebie (jedna przed, jedna za)
                         const offsetZ = (i === 0) ? -80 : 80;
                         clone.position.set(pair.x, 0, pair.z + offsetZ);
 
-                        // Rotacja - postacie patrzą na siebie
                         if (i === 0) {
-                            clone.rotation.y = 0; // Patrzy w kierunku dodatnim Z
+                            clone.rotation.y = 0;
                         } else {
-                            clone.rotation.y = Math.PI; // Patrzy w kierunku ujemnym Z
+                            clone.rotation.y = Math.PI;
                         }
 
-                        // Każda postać ma unikalny kolor
                         const color = colors[colorIndex % colors.length];
                         colorIndex++;
 
@@ -365,12 +337,10 @@
 
                         scene.add(clone);
 
-                        // Przypisz odpowiednią animację do pary
                         if (animations[pair.anim]) {
                             const mixer = new THREE.AnimationMixer(clone);
                             const action = mixer.clipAction(animations[pair.anim]);
                             
-                            // Lekkie przesunięcie czasowe między partnerami
                             action.timeScale = 1.0;
                             action.startAt(i * 0.2);
                             action.play();
@@ -411,14 +381,12 @@
             const delta = clock.getDelta();
             const time = clock.getElapsedTime();
 
-            // Animacja Mikserów
             if (mixers.length > 0) {
                 for (let i = 0; i < mixers.length; i++) {
                     mixers[i].update(delta);
                 }
             }
 
-            // Animacja Świateł i Obiektów
             objectRotators.forEach((obj) => {
                 if (obj.isPointLight) {
                     obj.position.x = Math.sin(time * obj.userData.speed + obj.userData.offset) * obj.userData.distance;
@@ -439,15 +407,12 @@
                     obj.mesh.rotation.y = time * 0.1;
                     obj.mesh.position.y = Math.sin(time) * 20;
                 } else if (obj.type === 'discoBall') {
-                    // Rotacja kuli disco
                     obj.mesh.rotation.y = time * 0.5;
                     obj.mesh.rotation.x = Math.sin(time * 0.3) * 0.1;
                 } else if (obj.type === 'discoSpot1') {
-                    // Ruch pierwszego reflektora
                     obj.light.target.position.x = Math.sin(time * 1.5) * 300;
                     obj.light.target.position.z = Math.cos(time * 1.5) * 300;
                 } else if (obj.type === 'discoSpot2') {
-                    // Ruch drugiego reflektora (w przeciwną stronę)
                     obj.light.target.position.x = Math.sin(time * 1.5 + Math.PI) * 300;
                     obj.light.target.position.z = Math.cos(time * 1.5 + Math.PI) * 300;
                 }
@@ -458,6 +423,4 @@
         }
 
     </script>
-</body>
-
-</html>
+</body></html>
