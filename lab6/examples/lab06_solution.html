@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>LAB 06 - CYBERPUNK DANCING PAIRS</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            background-color: #000;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #info {
+            color: #00ffff;
+            opacity: 0.8;
+            width: 100%;
+            text-align: center;
+            top: 0px;
+            position: absolute;
+            padding: 10px;
+            z-index: 100;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 30px;
+            pointer-events: none;
+            text-shadow: 0 0 10px #ff00de;
+            font-family: 'Courier New';
+            transition: opacity 1s;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        THREE.JS - 4 PARY TANCERZY (8 POSTACI)<br />
+        Wymagane pliki: Hip Hop Dancing.fbx, Hip Hop Dancing 1.fbx, Hip Hop Dancing 2.fbx, Hip Hop Dancing 4.fbx
+    </div>
+    <div id="overlay">GENEROWANIE ŚWIATA...</div>
+
+    <script type="module">
+
+        import * as THREE from '../build/three.module.js';
+        import { OrbitControls } from './jsm/controls/OrbitControls.js';
+        import { FBXLoader } from './jsm/loaders/FBXLoader.js';
+        import { SkeletonUtils } from './jsm/utils/SkeletonUtils.js';
+        import { EffectComposer } from './jsm/postprocessing/EffectComposer.js';
+        import { RenderPass } from './jsm/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from './jsm/postprocessing/UnrealBloomPass.js';
+
+        let camera, scene, renderer, composer;
+        const clock = new THREE.Clock();
+        let controls;
+
+        let mixers = [];
+        let objectRotators = [];
+
+        init();
+        animate();
+
+        function init() {
+
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            // --- KAMERA ---
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 10, 8000);
+            camera.position.set(0, 400, 800);
+
+            // --- SCENA ---
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020205);
+            scene.fog = new THREE.FogExp2(0x020205, 0.0006);
+
+            // --- ŚWIATŁA ---
+            const ambientLight = new THREE.AmbientLight(0x222222);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(100, 500, 100);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 4096;
+            dirLight.shadow.mapSize.height = 4096;
+            dirLight.shadow.camera.left = -1000;
+            dirLight.shadow.camera.right = 1000;
+            dirLight.shadow.camera.top = 1000;
+            dirLight.shadow.camera.bottom = -1000;
+            dirLight.shadow.camera.far = 2000;
+            scene.add(dirLight);
+
+            createMovingLight(0xff00ff, 400, 1.5, 200);
+            createMovingLight(0x00ffff, 400, 2.0, 300);
+            createMovingLight(0xffff00, 300, 1.0, 400);
+
+            // --- PODŁOGA ---
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0x050510,
+                roughness: 0.1,
+                metalness: 0.8,
+            });
+            const floor = new THREE.Mesh(new THREE.PlaneBufferGeometry(10000, 10000), floorMat);
+            floor.rotation.x = - Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            const grid = new THREE.GridHelper(4000, 80, 0xff00de, 0x220033);
+            grid.position.y = 2;
+            grid.material.opacity = 0.4;
+            grid.material.transparent = true;
+            scene.add(grid);
+
+            // --- KULA DISCO ---
+            const discoBallGeometry = new THREE.SphereGeometry(50, 32, 32);
+            const discoBallMaterial = new THREE.MeshPhongMaterial({
+                color: 0xcccccc,
+                specular: 0xffffff,
+                shininess: 100,
+                reflectivity: 1.0
+            });
+            const discoBall = new THREE.Mesh(discoBallGeometry, discoBallMaterial);
+            discoBall.position.set(0, 300, 0);
+            discoBall.castShadow = false;
+            discoBall.receiveShadow = false;
+            scene.add(discoBall);
+
+            // Dodaj refleksy na kuli disco - małe lustra
+            const mirrorGeometry = new THREE.CircleGeometry(3, 6);
+            const mirrorMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffffff,
+                specular: 0xffffff,
+                shininess: 100,
+                emissive: 0x444444,
+                emissiveIntensity: 0.5,
+                reflectivity: 1.0
+            });
+
+            const mirrorCount = 200;
+            for (let i = 0; i < mirrorCount; i++) {
+                const mirror = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
+                
+                // Rozmieszczenie na sferze
+                const phi = Math.acos(-1 + (2 * i) / mirrorCount);
+                const theta = Math.sqrt(mirrorCount * Math.PI) * phi;
+                
+                mirror.position.setFromSphericalCoords(50, phi, theta);
+                mirror.lookAt(0, 0, 0);
+                
+                discoBall.add(mirror);
+            }
+
+            // Punktowe światła od kuli disco
+            const discoLight1 = new THREE.PointLight(0xff00ff, 3, 500);
+            discoLight1.position.set(0, 300, 0);
+            scene.add(discoLight1);
+
+            const discoLight2 = new THREE.SpotLight(0x00ffff, 2, 800, Math.PI / 6);
+            discoLight2.position.set(0, 300, 0);
+            discoLight2.target.position.set(100, 0, 100);
+            discoLight2.castShadow = true;
+            scene.add(discoLight2);
+            scene.add(discoLight2.target);
+
+            const discoLight3 = new THREE.SpotLight(0xff00ff, 2, 800, Math.PI / 6);
+            discoLight3.position.set(0, 300, 0);
+            discoLight3.target.position.set(-100, 0, -100);
+            discoLight3.castShadow = true;
+            scene.add(discoLight3);
+            scene.add(discoLight3.target);
+
+            objectRotators.push({ mesh: discoBall, type: 'discoBall' });
+            objectRotators.push({ light: discoLight2, type: 'discoSpot1' });
+            objectRotators.push({ light: discoLight3, type: 'discoSpot2' });
+
+            // --- TŁO: INSTANCED MESH ---
+            const geometry = new THREE.BoxBufferGeometry(20, 20, 20);
+            const material = new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 100 });
+            const instances = 1500;
+            const instancedMesh = new THREE.InstancedMesh(geometry, material, instances);
+
+            const dummy = new THREE.Object3D();
+            const positions = [];
+            for (let i = 0; i < instances; i++) {
+                const pos = new THREE.Vector3(
+                    (Math.random() - 0.5) * 4000,
+                    Math.random() * 1000 + 100,
+                    (Math.random() - 0.5) * 4000 - 1000
+                );
+                positions.push(pos);
+                dummy.position.copy(pos);
+                dummy.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+                const scale = Math.random() * 2 + 0.5;
+                dummy.scale.set(scale, scale, scale);
+                dummy.updateMatrix();
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+            }
+            instancedMesh.castShadow = true;
+            scene.add(instancedMesh);
+
+            // --- PROCEDURALNE MIASTO ---
+            const towerGeom = new THREE.BoxBufferGeometry(100, 1, 100);
+            for (let i = 0; i < 40; i++) {
+                const h = Math.random() * 800 + 200;
+                const towerMat = new THREE.MeshStandardMaterial({
+                    color: 0x0a0a0a,
+                    emissive: new THREE.Color().setHSL(Math.random(), 0.5, 0.1),
+                    roughness: 0.2
+                });
+                const tower = new THREE.Mesh(towerGeom, towerMat);
+                tower.scale.y = h;
+                tower.position.set(
+                    (Math.random() - 0.5) * 5000,
+                    h / 2,
+                    (Math.random() - 0.5) * 5000 - 2000
+                );
+                if (Math.abs(tower.position.x) < 800 && Math.abs(tower.position.z) < 800) tower.position.x += 1000;
+                scene.add(tower);
+            }
+
+            // --- SYSTEM CZĄSTECZEK ---
+            const partCount = 2000;
+            const partGeom = new THREE.BufferGeometry();
+            const partPositions = new Float32Array(partCount * 3);
+            for (let i = 0; i < partCount * 3; i++) partPositions[i] = (Math.random() - 0.5) * 2000;
+            partGeom.setAttribute('position', new THREE.BufferAttribute(partPositions, 3));
+            const partMat = new THREE.PointsMaterial({ color: 0x00ffff, size: 2, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+            const sparks = new THREE.Points(partGeom, partMat);
+            scene.add(sparks);
+
+            objectRotators.push({ mesh: instancedMesh, positions: positions, type: 'instanced' });
+            objectRotators.push({ mesh: sparks, type: 'sparks' });
+
+            // --- RENDERER ---
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // --- POST PROCESSING ---
+            const renderScene = new RenderPass(scene, camera);
+
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0.1;
+            bloomPass.strength = 1.2;
+            bloomPass.radius = 0.5;
+
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
+            // --- KONTROLA ---
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 100, 0);
+            controls.enableDamping = true;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+            controls.update();
+
+            window.addEventListener('resize', onWindowResize, false);
+
+            // --- ŁADOWANIE MODELI FBX Z ANIMACJAMI ---
+            const animations = [];
+            const loader = new FBXLoader();
+            
+            Promise.all([
+                new Promise((resolve, reject) => {
+                    loader.load('models/fbx/Hip Hop Dancing.fbx', resolve, undefined, reject);
+                }),
+                new Promise((resolve, reject) => {
+                    loader.load('models/fbx/Hip Hop Dancing 1.fbx', resolve, undefined, reject);
+                }),
+                new Promise((resolve, reject) => {
+                    loader.load('models/fbx/Hip Hop Dancing 2.fbx', resolve, undefined, reject);
+                }),
+                new Promise((resolve, reject) => {
+                    loader.load('models/fbx/Hip Hop Dancing 4.fbx', resolve, undefined, reject);
+                })
+            ]).then((models) => {
+                
+                document.getElementById('overlay').style.opacity = 0;
+
+                // Zbierz animacje z każdego modelu
+                models.forEach((model, idx) => {
+                    if (model.animations && model.animations.length > 0) {
+                        animations.push(model.animations[0]);
+                        console.log(`Model ${idx} - animacja załadowana`);
+                    }
+                });
+
+                if (animations.length === 0) {
+                    console.warn('Brak animacji!');
+                    return;
+                }
+
+                // Użyj pierwszego modelu jako bazy
+                const baseModel = models[0];
+                const box = new THREE.Box3().setFromObject(baseModel);
+                const size = box.getSize(new THREE.Vector3());
+                const scaleAll = 170 / size.y;
+
+                // --- TWORZENIE 4 PAR TANCERZY (8 POSTACI) ---
+                // Każda para ma inne położenie i animację
+                const pairs = [
+                    { x: -300, z: 200, anim: 0 },    // Para 1 - Hip Hop Dancing
+                    { x: -100, z: -200, anim: 1 },   // Para 2 - Hip Hop Dancing 1
+                    { x: 100, z: 200, anim: 2 },     // Para 3 - Hip Hop Dancing 2
+                    { x: 300, z: -200, anim: 3 }     // Para 4 - Hip Hop Dancing 4
+                ];
+
+                // Paleta kolorów dla każdej postaci (8 różnych kolorów)
+                const colors = [
+                    new THREE.Color(0xff00ff), // Magenta
+                    new THREE.Color(0x00ffff), // Cyan
+                    new THREE.Color(0xff0000), // Czerwony
+                    new THREE.Color(0x00ff00), // Zielony
+                    new THREE.Color(0xffff00), // Żółty
+                    new THREE.Color(0x0000ff), // Niebieski
+                    new THREE.Color(0xff6600), // Pomarańczowy
+                    new THREE.Color(0xff0099)  // Różowy
+                ];
+
+                let colorIndex = 0;
+
+                pairs.forEach((pair, pairIdx) => {
+                    // Dwie postacie w parze - NAPRZECIWKO SIEBIE
+                    for (let i = 0; i < 2; i++) {
+                        const clone = SkeletonUtils.clone(baseModel);
+                        clone.scale.setScalar(scaleAll);
+
+                        // Pozycja - naprzeciwko siebie (jedna przed, jedna za)
+                        const offsetZ = (i === 0) ? -80 : 80;
+                        clone.position.set(pair.x, 0, pair.z + offsetZ);
+
+                        // Rotacja - postacie patrzą na siebie
+                        if (i === 0) {
+                            clone.rotation.y = 0; // Patrzy w kierunku dodatnim Z
+                        } else {
+                            clone.rotation.y = Math.PI; // Patrzy w kierunku ujemnym Z
+                        }
+
+                        // Każda postać ma unikalny kolor
+                        const color = colors[colorIndex % colors.length];
+                        colorIndex++;
+
+                        clone.traverse(child => {
+                            if (child.isMesh) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                                child.material = child.material.clone();
+                                child.material.emissive = color;
+                                child.material.emissiveIntensity = 0.5;
+                                child.material.color = new THREE.Color(0x222222);
+                                child.material.roughness = 0.3;
+                                child.material.metalness = 0.8;
+                            }
+                        });
+
+                        scene.add(clone);
+
+                        // Przypisz odpowiednią animację do pary
+                        if (animations[pair.anim]) {
+                            const mixer = new THREE.AnimationMixer(clone);
+                            const action = mixer.clipAction(animations[pair.anim]);
+                            
+                            // Lekkie przesunięcie czasowe między partnerami
+                            action.timeScale = 1.0;
+                            action.startAt(i * 0.2);
+                            action.play();
+                            
+                            mixers.push(mixer);
+                        }
+                    }
+                });
+
+            }).catch((error) => {
+                console.error('Błąd ładowania modeli:', error);
+                document.getElementById('overlay').innerHTML = "BŁĄD: Sprawdź czy istnieją:<br>models/fbx/Hip Hop Dancing.fbx<br>models/fbx/Hip Hop Dancing 1.fbx<br>models/fbx/Hip Hop Dancing 2.fbx<br>models/fbx/Hip Hop Dancing 4.fbx";
+                document.getElementById('overlay').style.color = "red";
+                document.getElementById('overlay').style.opacity = 1;
+                document.getElementById('overlay').style.fontSize = "20px";
+            });
+
+        }
+
+        function createMovingLight(color, intensity, speed, distance) {
+            const light = new THREE.PointLight(color, 2, 800);
+            light.castShadow = false;
+            scene.add(light);
+            light.userData = { speed: speed, distance: distance, offset: Math.random() * 100 };
+            objectRotators.push(light);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            // Animacja Mikserów
+            if (mixers.length > 0) {
+                for (let i = 0; i < mixers.length; i++) {
+                    mixers[i].update(delta);
+                }
+            }
+
+            // Animacja Świateł i Obiektów
+            objectRotators.forEach((obj) => {
+                if (obj.isPointLight) {
+                    obj.position.x = Math.sin(time * obj.userData.speed + obj.userData.offset) * obj.userData.distance;
+                    obj.position.z = Math.cos(time * obj.userData.speed + obj.userData.offset) * obj.userData.distance;
+                    obj.position.y = 200 + Math.sin(time * 2) * 50;
+                } else if (obj.type === 'instanced') {
+                    const dummy = new THREE.Object3D();
+                    for (let i = 0; i < 1500; i++) {
+                        const p = obj.positions[i];
+                        dummy.position.set(p.x, p.y + Math.sin(time + i) * 10, p.z);
+                        dummy.rotation.set(time * 0.1 + i, time * 0.15, 0);
+                        dummy.scale.setScalar(1);
+                        dummy.updateMatrix();
+                        obj.mesh.setMatrixAt(i, dummy.matrix);
+                    }
+                    obj.mesh.instanceMatrix.needsUpdate = true;
+                } else if (obj.type === 'sparks') {
+                    obj.mesh.rotation.y = time * 0.1;
+                    obj.mesh.position.y = Math.sin(time) * 20;
+                } else if (obj.type === 'discoBall') {
+                    // Rotacja kuli disco
+                    obj.mesh.rotation.y = time * 0.5;
+                    obj.mesh.rotation.x = Math.sin(time * 0.3) * 0.1;
+                } else if (obj.type === 'discoSpot1') {
+                    // Ruch pierwszego reflektora
+                    obj.light.target.position.x = Math.sin(time * 1.5) * 300;
+                    obj.light.target.position.z = Math.cos(time * 1.5) * 300;
+                } else if (obj.type === 'discoSpot2') {
+                    // Ruch drugiego reflektora (w przeciwną stronę)
+                    obj.light.target.position.x = Math.sin(time * 1.5 + Math.PI) * 300;
+                    obj.light.target.position.z = Math.cos(time * 1.5 + Math.PI) * 300;
+                }
+            });
+
+            controls.update();
+            composer.render();
+        }
+
+    </script>
+</body>
+
+</html>
