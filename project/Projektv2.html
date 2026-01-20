@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Symulacja Płomienia z Lustrem (Poprawione)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/stats.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #blow-hint {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #eee;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        <h2 style="margin: 0 0 10px 0;">Symulacja Płomienia</h2>
+        <p style="margin: 5px 0;">Projekt z wykorzystaniem systemów cząsteczkowych</p>
+        <p style="font-size: 0.8em; opacity: 0.8;">Użyj myszki do obracania i przybliżania</p>
+    </div>
+
+    <div id="blow-hint">Kliknij na płomień aby zdmuchnąć</div>
+
+    <div id="container"></div>
+
+    <script>
+        let scene, camera, renderer, controls, stats, gui;
+        let candle, flameLight, plane, mirrorMesh;
+        let flameSystem;
+        let clock = new THREE.Clock();
+        let raycaster, mouse;
+        let isFlameOn = true;
+        let relightTimer = 0;
+        let extraFlameSystems = [];
+        let extraCandles = [];
+
+        const params = {
+            flameHeight: 2.5,
+            flameWidth: 0.5,
+            particleCount: 300,
+            particleSize: 0.8,
+            flameColor: '#ff4400',
+            flicker: true,
+            showCandle: true,
+            windStrength: 0,
+            windDirection: 0,
+            heatDistortion: true
+        };
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x0a0a15, 15, 60);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 12);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 2, 0);
+
+            stats = new Stats();
+            document.body.appendChild(stats.dom);
+
+            createSkybox();
+
+            const ambient = new THREE.AmbientLight(0x404040, 0.3);
+            scene.add(ambient);
+
+            const planeGeo = new THREE.PlaneGeometry(100, 100);
+            const planeMat = new THREE.MeshPhongMaterial({ 
+                color: 0x1a1a1a, 
+                shininess: 10 
+            });
+            plane = new THREE.Mesh(planeGeo, planeMat);
+            plane.position.y = -2.65;
+            plane.rotation.x = -Math.PI / 2;
+            plane.receiveShadow = true;
+            scene.add(plane);
+
+            createEnvironment();
+            createMirror(); // Poprawione lustro
+            createCandle();
+
+            flameLight = new THREE.PointLight(0xff6600, 2, 15);
+            flameLight.position.set(0, 2.5, 0);
+            flameLight.castShadow = true;
+            flameLight.shadow.mapSize.width = 1024;
+            flameLight.shadow.mapSize.height = 1024;
+            scene.add(flameLight);
+
+            flameSystem = new FlameSystem(params.particleCount);
+            scene.add(flameSystem.mesh);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            setupGUI();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('click', onMouseClick);
+        }
+
+        // --- POPRAWIONA FUNKCJA LUSTRA ---
+        function createMirror() {
+            const geometry = new THREE.PlaneGeometry(5, 4);
+            
+            const mirror = new THREE.Reflector(geometry, {
+                clipBias: 0.003,
+                textureWidth: window.innerWidth * window.devicePixelRatio,
+                textureHeight: window.innerHeight * window.devicePixelRatio,
+                color: 0x333333 // Ciemniejszy kolor = wyraźniejsze odbicie, mniej "mleczne"
+            });
+            
+            mirror.position.set(0, 2, -2.5);
+            
+            // Rama lustra - Odsunięta dalej (-2.7 zamiast -2.6) aby uniknąć migania (z-fighting)
+            const frameGeo = new THREE.BoxGeometry(5.2, 4.2, 0.2);
+            const frameMat = new THREE.MeshPhongMaterial({ color: 0x3a1a0a }); 
+            const frame = new THREE.Mesh(frameGeo, frameMat);
+            frame.position.set(0, 2, -2.75); // Większy odstęp od tafli
+            frame.castShadow = true;
+            frame.receiveShadow = true;
+
+            const group = new THREE.Group();
+            group.add(mirror);
+            group.add(frame);
+            
+            scene.add(group);
+            mirrorMesh = mirror;
+        }
+
+        function createSkybox() {
+            const canvas = document.createElement('canvas');
+            const size = 1024;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, size);
+            gradient.addColorStop(0, '#0a0a20');
+            gradient.addColorStop(0.5, '#1a1a3e');
+            gradient.addColorStop(1, '#0f0f2a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 300; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const radius = Math.random() * 1.5 + 0.3;
+                const opacity = 0.3 + Math.random() * 0.7;
+                
+                ctx.globalAlpha = opacity;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const radius = Math.random() * 2 + 1.5;
+                
+                const starGradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 3);
+                starGradient.addColorStop(0, 'rgba(255,255,255,0.9)');
+                starGradient.addColorStop(0.5, 'rgba(255,255,255,0.3)');
+                starGradient.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = starGradient;
+                ctx.globalAlpha = 1;
+                ctx.beginPath();
+                ctx.arc(x, y, radius * 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.globalAlpha = 1;
+
+            const texture = new THREE.CanvasTexture(canvas);
+            
+            const materials = [];
+            for (let i = 0; i < 6; i++) {
+                materials.push(new THREE.MeshBasicMaterial({
+                    map: texture,
+                    side: THREE.BackSide,
+                    fog: false
+                }));
+            }
+
+            const skyboxGeo = new THREE.BoxGeometry(200, 200, 200);
+            const skybox = new THREE.Mesh(skyboxGeo, materials);
+            scene.add(skybox);
+        }
+
+        function createEnvironment() {
+            const tableGeo = new THREE.BoxGeometry(8, 0.3, 5);
+            const tableMat = new THREE.MeshPhongMaterial({ 
+                color: 0x4a2511,
+                shininess: 30
+            });
+            const table = new THREE.Mesh(tableGeo, tableMat);
+            table.position.y = -0.15;
+            table.castShadow = true;
+            table.receiveShadow = true;
+            scene.add(table);
+
+            const legGeo = new THREE.CylinderGeometry(0.15, 0.15, 2.5, 16);
+            const legMat = new THREE.MeshPhongMaterial({ color: 0x3a1a0a });
+            
+            const legPositions = [
+                [-3.5, -1.4, -2],
+                [3.5, -1.4, -2],
+                [-3.5, -1.4, 2],
+                [3.5, -1.4, 2]
+            ];
+
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeo, legMat);
+                leg.position.set(...pos);
+                leg.castShadow = true;
+                scene.add(leg);
+            });
+
+            createBook(-2, 0.05, 1.5, 0.3, 0xcc3333);
+            createBook(-1.5, 0.35, 1.5, 0.5, 0x3333bb);
+            createBook(-1.8, 0.65, 1.8, -0.2, 0x33aa33);
+
+            createExtraCandle(3, 0, -1, 0.3, 0.8, 50);
+            createExtraCandle(-3, 0, 1.5, 0.25, 0.6, 40);
+
+            const bottleGeo = new THREE.CylinderGeometry(0.2, 0.3, 1.5, 16);
+            const bottleMat = new THREE.MeshPhongMaterial({ 
+                color: 0x115511,
+                transparent: true,
+                opacity: 0.8,
+                shininess: 80
+            });
+            const bottle = new THREE.Mesh(bottleGeo, bottleMat);
+            bottle.position.set(2.5, 0.75, -1.5);
+            bottle.castShadow = true;
+            scene.add(bottle);
+
+            const warmLight = new THREE.HemisphereLight(0x332211, 0x110800, 0.3);
+            scene.add(warmLight);
+
+            const moonLight = new THREE.DirectionalLight(0x4466aa, 0.4);
+            moonLight.position.set(10, 20, 10);
+            moonLight.castShadow = true;
+            moonLight.shadow.camera.left = -15;
+            moonLight.shadow.camera.right = 15;
+            moonLight.shadow.camera.top = 15;
+            moonLight.shadow.camera.bottom = -15;
+            scene.add(moonLight);
+
+            const cupGeo = new THREE.CylinderGeometry(0.25, 0.2, 0.4, 16);
+            const cupMat = new THREE.MeshPhongMaterial({ 
+                color: 0x884422,
+                shininess: 50
+            });
+            const cup = new THREE.Mesh(cupGeo, cupMat);
+            cup.position.set(-2.5, 0.2, -1);
+            cup.castShadow = true;
+            scene.add(cup);
+
+            const handleGeo = new THREE.TorusGeometry(0.15, 0.03, 8, 16, Math.PI);
+            const handle = new THREE.Mesh(handleGeo, cupMat);
+            handle.position.set(-2.5, 0.2, -1);
+            handle.rotation.y = Math.PI / 2;
+            handle.rotation.z = Math.PI / 2;
+            scene.add(handle);
+        }
+
+        function createBook(x, y, z, rotation, color) {
+            const bookGeo = new THREE.BoxGeometry(0.8, 0.3, 1.2);
+            const bookMat = new THREE.MeshPhongMaterial({ 
+                color: color,
+                shininess: 10
+            });
+            const book = new THREE.Mesh(bookGeo, bookMat);
+            book.position.set(x, y, z);
+            book.rotation.y = rotation;
+            book.castShadow = true;
+            book.receiveShadow = true;
+            scene.add(book);
+        }
+
+        function createExtraCandle(x, y, z, radius, height, particleCount) {
+            const group = new THREE.Group();
+            
+            const bodyGeo = new THREE.CylinderGeometry(radius, radius, height, 24);
+            const bodyMat = new THREE.MeshPhongMaterial({ 
+                color: 0xddccaa
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = height / 2;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            group.add(body);
+
+            const wickGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.15, 6);
+            const wickMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
+            const wick = new THREE.Mesh(wickGeo, wickMat);
+            wick.position.y = height + 0.075;
+            group.add(wick);
+
+            const smallLight = new THREE.PointLight(0xff6600, 1, 8);
+            smallLight.position.y = height + 0.15;
+            smallLight.castShadow = true;
+            smallLight.shadow.mapSize.width = 512;
+            smallLight.shadow.mapSize.height = 512;
+            group.add(smallLight);
+
+            group.position.set(x, y, z);
+            scene.add(group);
+
+            const flamePos = new THREE.Vector3(x, y + height + 0.15, z);
+            const extraFlame = new FlameSystem(particleCount, flamePos, height * 1.5);
+            scene.add(extraFlame.mesh);
+            
+            extraFlameSystems.push(extraFlame);
+            extraCandles.push({ light: smallLight, flame: extraFlame });
+        }
+
+        function onMouseClick(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(flameSystem.mesh);
+
+            if (intersects.length > 0 && isFlameOn) {
+                blowOutFlame();
+            }
+        }
+
+        function blowOutFlame() {
+            isFlameOn = false;
+            relightTimer = 0;
+        }
+
+        function createCandle() {
+            const group = new THREE.Group();
+
+            const bodyGeo = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
+            const bodyMat = new THREE.MeshPhongMaterial({ color: 0xeeeeee });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 1;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            group.add(body);
+
+            const wickGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 8);
+            const wickMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
+            const wick = new THREE.Mesh(wickGeo, wickMat);
+            wick.position.y = 2.2;
+            group.add(wick);
+
+            candle = group;
+            scene.add(candle);
+        }
+
+        function setupGUI() {
+            gui = new dat.GUI();
+            
+            const flameFolder = gui.addFolder('Płomień');
+            flameFolder.add(params, 'flameHeight', 1, 10).name('Wysokość');
+            flameFolder.add(params, 'flameWidth', 0.1, 2).name('Szerokość');
+            flameFolder.add(params, 'particleSize', 0.1, 3).name('Wielkość Cząstki');
+            flameFolder.add(params, 'flicker').name('Migotanie');
+            flameFolder.addColor(params, 'flameColor').name('Kolor Płomienia').onChange(updateFlameColor);
+            flameFolder.open();
+            
+            const windFolder = gui.addFolder('Wiatr');
+            windFolder.add(params, 'windStrength', 0, 2).name('Siła Wiatru');
+            windFolder.add(params, 'windDirection', 0, 360).name('Kierunek (°)');
+            windFolder.open();
+            
+            const effectsFolder = gui.addFolder('Efekty');
+            effectsFolder.add(params, 'heatDistortion').name('Zniekształcenie Ciepła');
+            effectsFolder.open();
+            
+            gui.add(params, 'showCandle').name('Pokaż Świecę').onChange(v => candle.visible = v);
+        }
+        
+        function updateFlameColor() {
+            const color = new THREE.Color(params.flameColor);
+            flameLight.color = color;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Fix dla lustra przy zmianie rozmiaru okna
+            if(mirrorMesh && mirrorMesh.material.uniforms.tDiffuse) {
+                 mirrorMesh.getRenderTarget().setSize(
+                    window.innerWidth * window.devicePixelRatio,
+                    window.innerHeight * window.devicePixelRatio
+                );
+            }
+        }
+
+        class FlameSystem {
+            constructor(count, position = null, heightScale = 1) {
+                this.count = count;
+                this.basePosition = position || new THREE.Vector3(0, 2.2, 0);
+                this.heightScale = heightScale;
+
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(count * 3);
+                const colors = new Float32Array(count * 3);
+                const sizes = new Float32Array(count);
+                const opacities = new Float32Array(count);
+
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+                geometry.setAttribute('opacity', new THREE.BufferAttribute(opacities, 1));
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.4, 'rgba(255,255,255,0.4)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 64, 64);
+                const texture = new THREE.CanvasTexture(canvas);
+
+                const vertexShader = `
+                    attribute float size;
+                    attribute float opacity;
+                    varying vec3 vColor;
+                    varying float vOpacity;
+                    varying vec2 vUv;
+                    varying vec3 vPosition;
+                    
+                    void main() {
+                        vColor = color;
+                        vOpacity = opacity;
+                        vPosition = position;
+                        vUv = uv;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * (300.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `;
+
+                const fragmentShader = `
+                    uniform sampler2D pointTexture;
+                    uniform float time;
+                    uniform bool heatDistortion;
+                    varying vec3 vColor;
+                    varying float vOpacity;
+                    varying vec3 vPosition;
+                    
+                    void main() {
+                        vec2 uv = gl_PointCoord;
+                        
+                        if (heatDistortion) {
+                            float distortion = sin(vPosition.y * 10.0 + time * 5.0) * 0.02;
+                            uv.x += distortion;
+                        }
+                        
+                        vec4 texColor = texture2D(pointTexture, uv);
+                        gl_FragColor = vec4(vColor, vOpacity) * texColor;
+                    }
+                `;
+
+                const material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        pointTexture: { value: texture },
+                        time: { value: 0 },
+                        heatDistortion: { value: params.heatDistortion }
+                    },
+                    vertexShader: vertexShader,
+                    fragmentShader: fragmentShader,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    transparent: true,
+                    vertexColors: true
+                });
+
+                this.mesh = new THREE.Points(geometry, material);
+                this.particles = [];
+
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(this.resetParticle());
+                }
+            }
+
+            resetParticle() {
+                return {
+                    x: this.basePosition.x + (Math.random() - 0.5) * 0.15,
+                    y: this.basePosition.y + Math.random() * 0.1,
+                    z: this.basePosition.z + (Math.random() - 0.5) * 0.15,
+                    vx: (Math.random() - 0.5) * 0.012,
+                    vy: 0.01 + Math.random() * 0.015,
+                    vz: (Math.random() - 0.5) * 0.012,
+                    life: 0,
+                    maxLife: 0.8 + Math.random() * 0.7
+                };
+            }
+
+            update(delta, time) {
+                this.mesh.material.uniforms.time.value = time;
+                this.mesh.material.uniforms.heatDistortion.value = params.heatDistortion;
+
+                const colorBase = new THREE.Color(params.flameColor);
+                const positions = this.mesh.geometry.attributes.position.array;
+                const colors = this.mesh.geometry.attributes.color.array;
+                const sizes = this.mesh.geometry.attributes.size.array;
+                const opacities = this.mesh.geometry.attributes.opacity.array;
+
+                const windRad = (params.windDirection * Math.PI) / 180;
+                const windX = Math.cos(windRad) * params.windStrength * 0.01;
+                const windZ = Math.sin(windRad) * params.windStrength * 0.01;
+
+                for (let i = 0; i < this.count; i++) {
+                    let p = this.particles[i];
+                    
+                    if (!isFlameOn) {
+                        p.vy -= 0.02;
+                        p.life += delta * 3;
+                    } else {
+                        p.life += delta;
+                    }
+
+                    if (p.life > p.maxLife) {
+                        if (isFlameOn) {
+                            p = this.resetParticle();
+                            this.particles[i] = p;
+                        } else {
+                            opacities[i] = 0;
+                            continue;
+                        }
+                    }
+
+                    const ratio = p.life / p.maxLife;
+
+                    p.x += p.vx + windX;
+                    p.y += p.vy * params.flameHeight * this.heightScale;
+                    p.z += p.vz + windZ;
+
+                    const contractionStrength = 0.07 * (1 - params.windStrength * 0.3);
+                    p.vx += (-p.x + this.basePosition.x) * contractionStrength;
+                    p.vz += (-p.z + this.basePosition.z) * contractionStrength;
+
+                    const idx = i * 3;
+                    positions[idx] = p.x;
+                    positions[idx + 1] = p.y;
+                    positions[idx + 2] = p.z;
+
+                    const c = colorBase.clone();
+                    let opacity = 1.0;
+
+                    if (ratio < 0.2) {
+                        c.lerp(new THREE.Color(0xffffff), 1 - (ratio / 0.2));
+                    } else if (ratio > 0.4) {
+                        opacity = 1.0 - (ratio - 0.4) / 0.6;
+                        c.lerp(new THREE.Color(0xff0000), (ratio - 0.4) / 0.6);
+                    }
+
+                    colors[idx] = c.r;
+                    colors[idx + 1] = c.g;
+                    colors[idx + 2] = c.b;
+
+                    sizes[i] = params.particleSize * (1.2 - ratio * 0.4);
+                    opacities[i] = opacity;
+                }
+
+                this.mesh.geometry.attributes.position.needsUpdate = true;
+                this.mesh.geometry.attributes.color.needsUpdate = true;
+                this.mesh.geometry.attributes.size.needsUpdate = true;
+                this.mesh.geometry.attributes.opacity.needsUpdate = true;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            if (!isFlameOn) {
+                relightTimer += delta;
+                if (relightTimer > 3) {
+                    isFlameOn = true;
+                    relightTimer = 0;
+                }
+            }
+
+            if (flameSystem) {
+                flameSystem.update(delta, time);
+            }
+
+            extraFlameSystems.forEach(flame => {
+                flame.update(delta, time);
+            });
+
+            if (params.flicker && isFlameOn) {
+                const flickerVal = Math.random() * 0.5 + 1.5;
+                flameLight.intensity = flickerVal;
+                flameLight.position.x = (Math.random() - 0.5) * 0.1;
+                flameLight.position.z = (Math.random() - 0.5) * 0.1;
+                
+                extraCandles.forEach(candle => {
+                    const extraFlicker = Math.random() * 0.3 + 0.7;
+                    candle.light.intensity = extraFlicker;
+                });
+            } else if (isFlameOn) {
+                flameLight.intensity = 2;
+                extraCandles.forEach(candle => {
+                    candle.light.intensity = 1;
+                });
+            } else {
+                flameLight.intensity = Math.max(0, flameLight.intensity - delta * 2);
+            }
+
+            controls.update();
+            stats.update();
+            
+            renderer.render(scene, camera);
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+
+</html>
