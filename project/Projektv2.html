@@ -106,7 +106,7 @@
             scene.add(plane);
 
             createEnvironment();
-            createMirror(); // Poprawione lustro
+            createMirror();
             createCandle();
 
             flameLight = new THREE.PointLight(0xff6600, 2, 15);
@@ -128,7 +128,6 @@
             window.addEventListener('click', onMouseClick);
         }
 
-        // --- POPRAWIONA FUNKCJA LUSTRA ---
         function createMirror() {
             const geometry = new THREE.PlaneGeometry(5, 4);
             
@@ -136,16 +135,15 @@
                 clipBias: 0.003,
                 textureWidth: window.innerWidth * window.devicePixelRatio,
                 textureHeight: window.innerHeight * window.devicePixelRatio,
-                color: 0x333333 // Ciemniejszy kolor = wyraźniejsze odbicie, mniej "mleczne"
+                color: 0x333333
             });
             
             mirror.position.set(0, 2, -2.5);
             
-            // Rama lustra - Odsunięta dalej (-2.7 zamiast -2.6) aby uniknąć migania (z-fighting)
             const frameGeo = new THREE.BoxGeometry(5.2, 4.2, 0.2);
             const frameMat = new THREE.MeshPhongMaterial({ color: 0x3a1a0a }); 
             const frame = new THREE.Mesh(frameGeo, frameMat);
-            frame.position.set(0, 2, -2.75); // Większy odstęp od tafli
+            frame.position.set(0, 2, -2.75); 
             frame.castShadow = true;
             frame.receiveShadow = true;
 
