@@ -1,9 +1,5 @@
 # Computer Graphic Programming Course
 
-Kurs programowania grafiki komputerowej z użyciem biblioteki **Three.js**. Repozytorium zawiera serię laboratoriów progresywnie wprowadzających koncepty grafiki 3D, od podstaw do zaawansowanych technik.
-
-## 📋 Struktura projektu
-
 ### Lab 1 - Podstawy Three.js
 - **Plik:** `lab1/lab1_implementation.html`
 - **Zawartość:** Wprowadzenie do Three.js z prostą sceną zawierającą:
@@ -101,46 +97,6 @@ Każde lab i projekt to samodzielny plik HTML. Aby je uruchomić:
 ### Project - Symulacja płomienia
 - **Mysz** - Obracanie i przybliżanie sceny
 - **Klik na płomień** - Zdmuchnięcie/rozwianie płomienia
-
-## 🛠️ Wymagania
-
-- Nowoczesna przeglądarka z obsługą WebGL
-- Obsługa JavaScript ES6
-- Jeśli używasz serwera: Python 3 lub Node.js
-
-## 💡 Struktura kodu
-
-Każde laboratorium zawiera:
-1. **HTML** - Struktura strony
-2. **CSS** - Stylizacja (inline lub w `<style>`)
-3. **JavaScript** - Logika grafiki 3D
-   - Inicjalizacja sceny
-   - Pętla renderowania (animation loop)
-   - Handlery zdarzeń
-
-## 📖 Nauka progresywna
-
-Kursy idą od:
-1. ✅ Podstawowych koncepcji (Lab 1)
-2. ✅ Nawigacji i kontroli (Lab 2-4)
-3. ✅ Zaawansowanego renderowania (Lab 3)
-4. ✅ Symulacji fizyki (Lab 5)
-5. ✅ Profesjonalnych modeli i animacji (Lab 6)
-6. ✅ Zaawansowanych projektów (Project)
-
-## 📝 Notatki
-
-- Każdy plik HTML jest niezależny i może być uruchomiony samodzielnie
-- Kod jest skomentowany w celu ułatwienia zrozumienia
-- Biblioteki Three.js są dołączone w każdym laboratorium
-- Folder `lab6/examples/` i `lab6/jsm/` zawierają oficjalne przykłady i moduły Three.js
-
-## 🔗 Zasoby
-
-- [Three.js Documentation](https://threejs.org/docs/)
-- [Three.js Examples](https://threejs.org/examples/)
-- [Ammo.js Physics](https://github.com/kripken/ammo.js)
-- [dat.gui GitHub](https://github.com/dataarts/dat.gui)
 
 ## ✨ Przykładowe cechy implementacji
 
